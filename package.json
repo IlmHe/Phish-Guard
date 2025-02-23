@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "webpack",
     "start": "./start-dev.sh",
-    "format": "prettier --write \"src/**/*.{ts,js,json,html}\""
+    "lint": "prettier --write \"src/**/*.{ts,js,json,html}\""
   },
   "repository": {
     "type": "git",

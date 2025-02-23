@@ -4,6 +4,7 @@ import browser from 'webextension-polyfill';
 
 const Popup: React.FC = () => {
     const [url, setUrl] = useState<string>('');
+    const [scanResult, setScanResult] = useState<string>('');
 
     useEffect(() => {
         console.log('Popup component loaded');
@@ -26,8 +27,13 @@ const Popup: React.FC = () => {
 
     const handleConfirm = () => {
         // Send a message to the background script to scan the URL
-        browser.runtime.sendMessage({ action: 'scanUrl', url });
-        window.close();
+        browser.runtime.sendMessage({ action: 'scanUrl', url }).then(response => {
+            if ((response as any).error) {
+                setScanResult('Error: ' + (response as any).error);
+            } else {
+                setScanResult('Scan results: ' + JSON.stringify(response));
+            }
+        });
     };
 
     const handleCancel = () => {
@@ -52,6 +58,7 @@ const Popup: React.FC = () => {
                 <button className="button is-primary" onClick={handleConfirm}>Scan</button>
                 <button className="button is-light" onClick={handleCancel}>Cancel</button>
             </div>
+            {scanResult && <div className="notification is-info">{scanResult}</div>}
         </div>
     );
 };

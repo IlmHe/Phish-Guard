@@ -1,4 +1,5 @@
 import browser from 'webextension-polyfill';
+import { sendToApi } from './apiservice';
 
 console.log('Background script loaded');
 
@@ -37,7 +38,13 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (typeof message === 'object' && message !== null && 'action' in message && 'url' in message && (message as any).action === 'scanUrl' && (message as any).url) {
     console.log(`Scanning: ${message.url}`);
-    // Implement your scanning logic here
+    sendToApi(message.url as string).then(response => {
+      console.log('Scan results:', response);
+      sendResponse(response);
+    }).catch(error => {
+      console.error('Error scanning URL:', error);
+      sendResponse({ error: 'Failed to scan URL' });
+    });
     return true; // Indicate that the response will be sent asynchronously
   }
   return undefined;

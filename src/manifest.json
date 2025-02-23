@@ -3,12 +3,7 @@
   "name": "Phish-Guard",
   "version": "1.0",
   "description": "A browser extension to guard against phishing.",
-  "permissions": [
-    "activeTab",
-    "webNavigation",
-    "storage",
-    "contextMenus"
-  ],
+  "permissions": ["activeTab", "webNavigation", "storage", "contextMenus"],
   "background": {
     "scripts": ["background.js"]
   },
