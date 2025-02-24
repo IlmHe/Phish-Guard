@@ -1,6 +1,6 @@
 # Phish-Guard
 
-Phish-Guard is a privacy-friendly, lightweight browser extension designed to detect phishing emails, URLs, and other malicious content. It operates seamlessly in the background, providing users with an easy-to-use tool to enhance their online security.
+Phish-Guard is a privacy-friendly, lightweight browser extension designed to detect phishing URLs, and other malicious content. It operates seamlessly in the background, providing users with an easy-to-use tool to enhance their online security.
 
 ## Features
 
