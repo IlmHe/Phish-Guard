@@ -5,6 +5,7 @@ import browser from 'webextension-polyfill';
 const Popup: React.FC = () => {
     const [url, setUrl] = useState<string>('');
     const [scanResult, setScanResult] = useState<string>('');
+    const [isScanning, setIsScanning] = useState<boolean>(false);
 
     useEffect(() => {
         console.log('Popup component loaded');
@@ -26,13 +27,20 @@ const Popup: React.FC = () => {
     }, []);
 
     const handleConfirm = () => {
+        setIsScanning(true);
         // Send a message to the background script to scan the URL
         browser.runtime.sendMessage({ action: 'scanUrl', url }).then(response => {
-            if ((response as any).error) {
-                setScanResult('Error: ' + (response as any).error);
-            } else {
-                setScanResult('Scan results: ' + JSON.stringify(response));
+            if (!response) {
+                setScanResult('Error: No response from background script');
+                setIsScanning(false);
+                return;
             }
+            const result = (response as any).error ? 'Error: ' + (response as any).error : 'Scan results: ' + JSON.stringify(response);
+            setScanResult(result);
+            setIsScanning(false);
+        }).catch(error => {
+            setScanResult('Error: ' + error.message);
+            setIsScanning(false);
         });
     };
 
@@ -43,22 +51,33 @@ const Popup: React.FC = () => {
     return (
         <div className="container" style={{ padding: '20px' }}>
             <h1 className="title">Confirm URL</h1>
-            <div className="field">
-                <div className="control">
-                    <textarea
-                        className="textarea"
-                        id="url"
-                        value={url}
-                        onChange={(e) => setUrl(e.target.value)}
-                        style={{ height: '100px', wordBreak: 'break-all' }}
-                    />
+            {!isScanning && !scanResult && (
+                <>
+                    <div className="field">
+                        <div className="control">
+                            <textarea
+                                className="textarea"
+                                id="url"
+                                value={url}
+                                onChange={(e) => setUrl(e.target.value)}
+                                style={{ height: '100px', wordBreak: 'break-all' }}
+                            />
+                        </div>
+                    </div>
+                    <div className="buttons">
+                        <button className="button is-primary" onClick={handleConfirm}>Scan</button>
+                        <button className="button is-light" onClick={handleCancel}>Cancel</button>
+                    </div>
+                </>
+            )}
+            {isScanning && <div className="loader">Scanning...</div>}
+            {scanResult && (
+                <div className="notification is-info">
+                    <h2>Scan Results</h2>
+                    {scanResult}
+                    <button className="button is-light" onClick={handleCancel}>Close</button>
                 </div>
-            </div>
-            <div className="buttons">
-                <button className="button is-primary" onClick={handleConfirm}>Scan</button>
-                <button className="button is-light" onClick={handleCancel}>Cancel</button>
-            </div>
-            {scanResult && <div className="notification is-info">{scanResult}</div>}
+            )}
         </div>
     );
 };

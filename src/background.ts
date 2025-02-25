@@ -40,12 +40,13 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log(`Scanning: ${message.url}`);
     sendToApi(message.url as string).then(response => {
       console.log('Scan results:', response);
-      sendResponse(response);
+      const virusTotalLink = `https://www.virustotal.com/gui/url/${encodeURIComponent(message.url as string)}`;
+      sendResponse({ ...response, virusTotalLink });
     }).catch(error => {
       console.error('Error scanning URL:', error);
       sendResponse({ error: 'Failed to scan URL' });
     });
-    return true; // Indicate that the response will be sent asynchronously
+    return true;
   }
   return undefined;
 });
