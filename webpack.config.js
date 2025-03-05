@@ -20,8 +20,6 @@ module.exports = {
   resolve: {
     extensions: ['.ts', '.tsx', '.js'],
     fallback: {
-      "vm": require.resolve("vm-browserify"),
-      "crypto": require.resolve("crypto-browserify"),
     },
   },
   output: {
