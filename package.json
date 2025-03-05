@@ -31,11 +31,17 @@
     "webpack-dev-server": "^5.2.0"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "bulma": "^1.0.3",
+    "crypto-browserify": "^3.12.1",
+    "dotenv": "^16.4.7",
+    "os-browserify": "^0.3.0",
+    "path-browserify": "^1.0.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "vm-browserify": "^1.1.2",
     "webextension-polyfill": "^0.12.0"
   }
 }

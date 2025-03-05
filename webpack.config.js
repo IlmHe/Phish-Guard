@@ -3,9 +3,8 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
   entry: {
-    bundle: './src/index.ts',
+    popup: './src/Popup.tsx',
     background: './src/background.ts',
-    popup: './src/Popup.tsx'
   },
   mode: 'development',
   devtool: 'source-map',
@@ -20,6 +19,10 @@ module.exports = {
   },
   resolve: {
     extensions: ['.ts', '.tsx', '.js'],
+    fallback: {
+      "vm": require.resolve("vm-browserify"),
+      "crypto": require.resolve("crypto-browserify"),
+    },
   },
   output: {
     filename: '[name].js',

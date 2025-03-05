@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import browser from 'webextension-polyfill';
+import { checkUrlInSupabase } from './apiservice';
 
 const Popup: React.FC = () => {
     const [url, setUrl] = useState<string>('');
-    const [scanResult, setScanResult] = useState<string>('');
+    const [domain, setDomain] = useState<string>('');
+    const [scanResult, setScanResult] = useState<{ domainLink: string } | null>(null);
     const [isScanning, setIsScanning] = useState<boolean>(false);
 
     useEffect(() => {
@@ -15,33 +16,38 @@ const Popup: React.FC = () => {
             return urlMatch ? decodeURIComponent(urlMatch[1]) : googleUrl;
         }
 
+        function extractDomain(url: string): string {
+            const domainMatch = url.match(/^(?:https?:\/\/)?(?:www\.)?([^\/]+)/i);
+            return domainMatch ? domainMatch[1] : url;
+        }
+
         // Get the URL from the query parameters
         const params = new URLSearchParams(window.location.search);
         const urlParam = params.get('url');
 
         if (urlParam) {
             const actualUrl = extractActualUrl(urlParam);
+            const domainUrl = extractDomain(actualUrl);
             console.log(`URL to display: ${actualUrl}`);
+            console.log(`Domain to display: ${domainUrl}`);
             setUrl(actualUrl);
+            setDomain(domainUrl);
         }
     }, []);
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
         setIsScanning(true);
-        // Send a message to the background script to scan the URL
-        browser.runtime.sendMessage({ action: 'scanUrl', url }).then(response => {
-            if (!response) {
-                setScanResult('Error: No response from background script');
-                setIsScanning(false);
-                return;
-            }
-            const result = (response as any).error ? 'Error: ' + (response as any).error : 'Scan results: ' + JSON.stringify(response);
+        try {
+            const isUrlInSupabase = await checkUrlInSupabase(url);
+            const result = isUrlInSupabase
+                ? { domainLink: `https://www.virustotal.com/gui/domain/${encodeURIComponent(domain)}` }
+                : { urlLink: 'URL not found in Supabase', domainLink: '' };
             setScanResult(result);
+        } catch (error) {
+            setScanResult({ domainLink: 'Error: ' + (error instanceof Error ? error.message : 'Unknown error'), });
+        } finally {
             setIsScanning(false);
-        }).catch(error => {
-            setScanResult('Error: ' + error.message);
-            setIsScanning(false);
-        });
+        }
     };
 
     const handleCancel = () => {
@@ -64,6 +70,17 @@ const Popup: React.FC = () => {
                             />
                         </div>
                     </div>
+                    <div className="field">
+                        <div className="control">
+                            <input
+                                className="input"
+                                id="domain"
+                                value={domain}
+                                readOnly
+                                style={{ wordBreak: 'break-all' }}
+                            />
+                        </div>
+                    </div>
                     <div className="buttons">
                         <button className="button is-primary" onClick={handleConfirm}>Scan</button>
                         <button className="button is-light" onClick={handleCancel}>Cancel</button>
@@ -74,7 +91,7 @@ const Popup: React.FC = () => {
             {scanResult && (
                 <div className="notification is-info">
                     <h2>Scan Results</h2>
-                    {scanResult}
+                    <p>Domain Scan: <a href={scanResult.domainLink} target="_blank" rel="noopener noreferrer">{scanResult.domainLink}</a></p>
                     <button className="button is-light" onClick={handleCancel}>Close</button>
                 </div>
             )}

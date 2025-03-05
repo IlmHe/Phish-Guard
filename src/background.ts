@@ -1,5 +1,4 @@
 import browser from 'webextension-polyfill';
-import { sendToApi } from './apiservice';
 
 console.log('Background script loaded');
 
@@ -35,18 +34,12 @@ browser.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
-browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (typeof message === 'object' && message !== null && 'action' in message && 'url' in message && (message as any).action === 'scanUrl' && (message as any).url) {
-    console.log(`Scanning: ${message.url}`);
-    sendToApi(message.url as string).then(response => {
-      console.log('Scan results:', response);
-      const virusTotalLink = `https://www.virustotal.com/gui/url/${encodeURIComponent(message.url as string)}`;
-      sendResponse({ ...response, virusTotalLink });
-    }).catch(error => {
-      console.error('Error scanning URL:', error);
-      sendResponse({ error: 'Failed to scan URL' });
-    });
-    return true;
-  }
-  return undefined;
-});
+// browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+//   if (typeof message === 'object' && message !== null && 'action' in message && 'url' in message && 'domain' in message && (message as any).action === 'scanUrl' && (message as any).url && (message as any).domain) {
+//     console.log(`Generating VirusTotal domain link for: ${message.domain}`);
+//     const virusTotalDomainLink = `https://www.virustotal.com/gui/domain/${encodeURIComponent(message.domain as string)}`;
+//     sendResponse({ virusTotalDomainLink });
+//     return true;
+//   }
+//   return undefined;
+// });

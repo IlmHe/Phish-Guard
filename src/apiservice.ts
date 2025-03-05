@@ -1,21 +1,26 @@
-export async function sendToApi(url: string): Promise<any> {
-  console.log('Sending URL to backend:', url);
-  // const response = await fetch('https://your-backend-endpoint.com/scan', {
-  //   method: 'POST',
-  //   headers: {
-  //     'Content-Type': 'application/json',
-  //   },
-  //   body: JSON.stringify({ url }),
-  // });
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
 
-  // if (!response.ok) {
-  //   throw new Error('Failed to send link to backend');
-  // }
+dotenv.config();
 
-  // return response.json();
+const supabaseUrl = process.env.SUPABASE_URL as string;
+const supabaseKey = process.env.SUPABASE_KEY as string;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+export async function checkUrlInSupabase(url: string): Promise<boolean> {
+    const { data, error } = await supabase
+        .from('phish-co-za_urls')
+        .select('url')
+        .eq('url', url);
+
+    if (error) {
+        console.error('Error querying Supabase:', error);
+        throw new Error('Failed to query Supabase');
+    }
+
+    return data.length > 0;
 }
 
 /*
-https://www.phishtank.com/developer_info.php
-https://docs.virustotal.com/reference/public-vs-premium-api
+sitemap ja robots.txt
 */
