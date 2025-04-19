@@ -1,88 +1,83 @@
 # Phish-Guard
 
-Phish-Guard is a privacy-friendly, lightweight browser extension designed to detect phishing URLs, and other malicious content. It operates seamlessly in the background, providing users with an easy-to-use tool to enhance their online security.
+Phish-Guard is a lightweight browser extension designed to help users identify potentially malicious URLs by checking them against a known phishing database and providing quick links for further investigation.
 
-## Features
+## Current Features
 
-- Detects phishing emails and URLs
-- Lightweight and efficient
-- Privacy-friendly: no data collection
-- Easy to use and out of the way for end users
+*   **Context Menu Integration:** Right-click on links or selected text to initiate a scan.
+*   **URL Confirmation:** Presents the identified URL in a popup for confirmation before scanning.
+*   **Database Check:** Verifies the URL against a user-managed Supabase database of known phishing sites.
+*   **Status Indication:** Clearly indicates if the URL was found in the database or not.
+*   **VirusTotal Integration:** Provides a direct link to check the URL's domain on VirusTotal.
+*   **Site File Access:** Offers quick links to attempt viewing the site's `robots.txt` and to search for its sitemap (`sitemap.xml` or `sitemap.txt`) via Google.
 
-## Installation
+## Installation & Running
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (version 22.14.0)
-- [npm](https://www.npmjs.com/) (version 10.9.2)
-- [web-ext](https://www.npmjs.com/package/web-ext) (install globally)
+*   [Node.js](https://nodejs.org/) (LTS version recommended)
+*   [npm](https://www.npmjs.com/) (comes with Node.js)
+*   Supabase Project: You need a Supabase project with a table (e.g., `phish-co-za_urls`) containing a `url` column for known phishing sites.
 
-### Steps
+### Setup
 
-1. Clone the repository:
-
+1.  Clone the repository:
     ```bash
     git clone https://github.com/IlmHe/Phish-Guard.git
     cd Phish-Guard
     ```
 
-2. Install dependencies:
+2.  Create a `.env` file in the `Phish-Guard` directory with your Supabase credentials:
+    ```dotenv
+    SUPABASE_URL="YOUR_SUPABASE_URL"
+    SUPABASE_KEY="YOUR_SUPABASE_ANON_KEY"
+    ```
+    *(Replace `YOUR_SUPABASE_URL` and `YOUR_SUPABASE_ANON_KEY` with your actual Supabase project URL and anon key.)*
 
+3.  Install dependencies:
     ```bash
     npm install
     ```
 
-3. Build the project:
+### Development
 
-    ```bash
-    npm run build
-    ```
+To run the extension in a development environment with automatic reloading:
 
-4. Start the development server with hot reload:
+```bash
+npm start
+```
 
-    ```bash
-    npm start
-    ```
+This command uses `web-ext` to run the extension in a temporary browser profile (usually Firefox). It watches for file changes and rebuilds/reloads the extension automatically. Your `.env` file will be used during the build process.
 
-5. The extension will automatically load in a testing browser.
+### Production Build
+
+To create a distributable version of the extension (e.g., for manual installation or publishing):
+
+```bash
+npm run build
+```
+
+This will create the necessary bundled files in the `dist` directory. You can then load this `dist` directory as an unpacked extension in your browser (Chrome, Firefox, Edge, etc.).
 
 ## Usage
-Phish-Guard runs when the user manually initiates a scan. To use the extension, right-click on the text or link you want to check and select the Phish-Guard option from the context menu. You can view the extension's logs by opening the browser's developer tools and navigating to the background page's console.
+
+1.  While browsing, right-click on a link, selected text containing a URL, or anywhere on a page (to scan the page's URL).
+2.  Select "Scan with Phish-Guard" from the context menu.
+3.  A popup window will appear showing the detected URL and domain.
+4.  Click "Scan" to check the URL against the Supabase database and get links for VirusTotal, `robots.txt`, and sitemap search.
+5.  The results will indicate if the URL was found in the database and provide the relevant links.
+6.  Click "Close" or "Cancel" to dismiss the popup.
+
+## Future Plans
+
+*   **Integration with Additional Databases/APIs:** Explore integrating checks against other public threat intelligence feeds or phishing databases (e.g., PhishTank, OpenPhish, Google Safe Browsing API - subject to API terms and availability) to provide more comprehensive results.
+*   **URL Analysis:** Implement basic client-side analysis of URL structure for common phishing patterns (e.g., excessive subdomains, misleading characters).
+*   **Configuration Options:** Allow users to configure API keys or select which databases to query via an options page.
+*   **Improved UI/UX:** Enhance the visual feedback and user flow within the popup.
 
 ## Contributing
 
-We welcome contributions from the community! Here are some ways you can help:
-
-### Reporting Bugs
-
-If you encounter any issues or bugs, please report them using [GitHub Issues](https://github.com/IlmHe/Phish-Guard/issues). When reporting a bug, please include:
-
-- A clear and descriptive title
-- Steps to reproduce the issue
-- Expected and actual results
-- Any relevant screenshots or logs
-
-### Feature Requests
-
-If you have an idea for a new feature or an improvement, please open a [GitHub Issue](https://github.com/IlmHe/Phish-Guard/issues) and describe your suggestion in detail.
-
-### Submitting Pull Requests
-
-1. Fork the repository.
-2. Create a new branch for your feature or bugfix:
-
-    ```bash
-    git checkout -b feature/your-feature-name
-    ```
-
-3. Make your changes and commit them with a clear and descriptive commit message.
-4. Push your changes to your forked repository:
-
-    ```bash
-    git push origin feature/your-feature-name
-    ```
-
-5. Open a pull request on the main repository and provide a detailed description of your changes.
+Contributions are welcome! Please feel free to submit issues or pull requests.
 
 ## License
 
