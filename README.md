@@ -17,7 +17,7 @@ Phish-Guard is a lightweight browser extension designed to help users identify p
 
 *   [Node.js](https://nodejs.org/) (LTS version recommended)
 *   [npm](https://www.npmjs.com/) (comes with Node.js)
-*   Supabase Project: You need a Supabase project with a table (e.g., `phish-co-za_urls`) containing a `url` column for known phishing sites.
+*   Supabase Project: You need a Supabase project with a table (e.g., `phish-co-za_urls`) containing a `url` column for known phishing sites. (currently using my own supabase which gets populated by co_za_urls)
 
 ### Setup
 
