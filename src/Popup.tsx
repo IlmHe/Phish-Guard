@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import browser from 'webextension-polyfill'; // Add this import
 import { checkUrlInSupabase } from './apiservice';
+import { PhishGuardSettings, StorageData, defaultSettings, ScanResult } from './types';
 
 function extractActualUrl(googleUrl: string): string {
     const urlMatch = googleUrl.match(/[?&]url=([^&]+)/);
@@ -12,25 +14,13 @@ function extractDomain(url: string): string {
     return domainMatch ? domainMatch[1] : url;
 }
 
-// Define a more descriptive type for scan results
-type ScanResult =
-    | {
-          supabaseStatus: 'found' | 'not_found';
-          virusTotalLink: string;
-          error?: undefined; // No error during Supabase check
-      }
-    | {
-          supabaseStatus: 'error';
-          virusTotalLink: null; // Supabase check failed
-          error: string;
-      }
-    | null;
-
 const Popup = (): React.ReactElement => {
     const [url, setUrl] = useState<string>('');
     const [domain, setDomain] = useState<string>('');
-    const [scanResult, setScanResult] = useState<ScanResult>(null);
+    const [scanResult, setScanResult] = useState<ScanResult | null>(null);
     const [isScanning, setIsScanning] = useState<boolean>(false);
+    const [settings, setSettings] = useState<PhishGuardSettings>(defaultSettings);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         console.log('Popup component loaded');
@@ -49,24 +39,63 @@ const Popup = (): React.ReactElement => {
         }
     }, []);
 
+    const extractedUrl = url;
+
     const handleConfirm = async () => {
+        if (!extractedUrl) {
+            setError('Could not extract a valid URL.');
+            return;
+        }
         setIsScanning(true);
-        setScanResult(null); // Reset previous result
-        const virusTotalLink = `https://www.virustotal.com/gui/domain/${encodeURIComponent(domain)}`; // Prepare VT link regardless
+        setScanResult(null);
+        setError(null);
+
         try {
-            const isUrlInSupabase = await checkUrlInSupabase(url);
-            // Set state including VT link and Supabase status
-            setScanResult({
-                supabaseStatus: isUrlInSupabase ? 'found' : 'not_found',
-                virusTotalLink: virusTotalLink,
-            });
-        } catch (error) {
-            // Set state for Supabase check error
-            setScanResult({
-                supabaseStatus: 'error',
-                virusTotalLink: null, // Indicate Supabase check failed
-                error: 'Error checking Supabase: ' + (error instanceof Error ? error.message : 'Unknown error'),
-            });
+            // 1. Reload settings from storage FIRST
+            const settingsData: StorageData = await browser.storage.sync.get('phishGuardSettings');
+            const currentSettings = { ...defaultSettings, ...settingsData.phishGuardSettings };
+            setSettings(currentSettings); // Update settings state
+
+            // 2. Prepare initial ScanResult structure 
+            //    (Explicitly type satisfies ScanResult but allows building)
+            let resultObject: { 
+                url: string;
+                robotsUrl?: string;
+                sitemapUrl?: string;
+                virusTotalUrl?: string;
+                supabaseStatus: 'found' | 'not_found' | 'error' | 'not_checked';
+                error?: string;
+            } = {
+                url: extractedUrl, // Include the required url
+                robotsUrl: `http://${new URL(extractedUrl).hostname}/robots.txt`,
+                sitemapUrl: `https://www.google.com/search?q=${encodeURIComponent(`site:${domain} (filetype:xml OR filetype:txt) inurl:sitemap`)}`, // Use Google Dork
+                virusTotalUrl: `https://www.virustotal.com/gui/url/${encodeURIComponent(extractedUrl)}`,
+                supabaseStatus: 'not_checked', // Start as not checked
+                error: undefined // Start with no error
+            };
+
+            // 3. Perform Supabase check and update the resultObject
+            try {
+                const isUrlInSupabase = await checkUrlInSupabase(extractedUrl); 
+                resultObject.supabaseStatus = isUrlInSupabase ? 'found' : 'not_found';
+            } catch (supabaseError) {
+                console.error('Supabase check failed:', supabaseError);
+                resultObject.supabaseStatus = 'error';
+                resultObject.error = 'Error checking Supabase: ' + (supabaseError instanceof Error ? supabaseError.message : 'Unknown error');
+                // Optionally clear other links if Supabase fails 
+                // resultObject.virusTotalUrl = undefined; 
+            }
+
+            // 4. Simulate delay (optional)
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // 5. Set the final state ONCE with the fully constructed object
+            setScanResult(resultObject);
+
+        } catch (err: any) {
+            console.error('Scan failed:', err);
+            setError(err.message || 'Failed to scan URL');
+            setScanResult(null); // Ensure result is null on general failure
         } finally {
             setIsScanning(false);
         }
@@ -116,24 +145,34 @@ const Popup = (): React.ReactElement => {
                 <div className={`notification ${scanResult.supabaseStatus === 'error' ? 'is-danger' : scanResult.supabaseStatus === 'found' ? 'is-warning' : 'is-info'}`}>
                     <h2>Scan Results</h2>
                     {/* Supabase Status */}
-                    {scanResult.supabaseStatus === 'found' && <p><strong>Status:</strong> URL found in known phishing sites database.</p>}
-                    {scanResult.supabaseStatus === 'not_found' && <p><strong>Status:</strong> URL not found in known phishing sites database.</p>}
-                    {scanResult.supabaseStatus === 'error' && <p><strong>Status:</strong> Error checking database: {scanResult.error}</p>}
+                    {scanResult.supabaseStatus === 'found' && <p className="has-text-danger"><strong>Status:</strong> Found in Phishing DB (Supabase)</p>}
+                    {scanResult.supabaseStatus === 'not_found' && <p className="has-text-success"><strong>Status:</strong> Not found in Phishing DB (Supabase)</p>}
+                    {scanResult.supabaseStatus === 'error' && <p className="has-text-warning"><strong>Status:</strong> Error checking Phishing DB: {scanResult.error}</p>}
+                    {scanResult.supabaseStatus === 'not_checked' && <p><strong>Status:</strong> Checking Supabase...</p>}
 
-                    {/* VirusTotal Link (show unless Supabase check failed) */}
-                    {scanResult.virusTotalLink && (
-                        <p style={{ marginTop: '10px' }}>Check domain on VirusTotal: <a href={scanResult.virusTotalLink} target="_blank" rel="noopener noreferrer">{scanResult.virusTotalLink}</a></p>
-                    )}
-
-                    {/* robots.txt and sitemap.xml buttons (show unless Supabase check failed) */}
-                    {scanResult.virusTotalLink && (
-                        <div className="buttons" style={{ marginTop: '15px' }}>
-                             {/* Updated button style */}
-                             <a href={`https://${domain}/robots.txt`} target="_blank" rel="noopener noreferrer" className="button is-link">View robots.txt</a>
-                             {/* Updated button style */}
-                             <a href={`https://www.google.com/search?q=${encodeURIComponent(`site:${domain} (filetype:xml OR filetype:txt) inurl:sitemap`)}`} target="_blank" rel="noopener noreferrer" className="button is-link">Search for Sitemap</a>
-                        </div>
-                    )}
+                    <div className="buttons mt-3"> {/* Add margin-top */} 
+                         {settings.showRobotsTxt && scanResult.robotsUrl && (
+                             <a href={scanResult.robotsUrl} target="_blank" rel="noopener noreferrer" className="button is-link is-light">
+                                 View robots.txt
+                             </a>
+                         )}
+                         {settings.showSitemap && scanResult.sitemapUrl && (
+                             <a href={scanResult.sitemapUrl} target="_blank" rel="noopener noreferrer" className="button is-link is-light">
+                                 Search Sitemap
+                             </a>
+                         )}
+                         {settings.showVirusTotal && scanResult.virusTotalUrl && (
+                             <a href={scanResult.virusTotalUrl} target="_blank" rel="noopener noreferrer" className="button is-warning is-light">
+                                VirusTotal Scan
+                             </a>
+                         )}
+                         {/* Conditionally render Supabase button based on settings (maybe disable if checked?) */} 
+                         {settings.showSupabase && (
+                             <button className="button is-info is-light" disabled> {/* Example: Disable button after check */}
+                                 Supabase ({scanResult.supabaseStatus})
+                             </button>
+                         )}
+                    </div>
 
                     <button className="button is-light" onClick={handleCancel} style={{ marginTop: '15px' }}>Close</button>
                 </div>

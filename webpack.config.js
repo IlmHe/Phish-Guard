@@ -2,11 +2,13 @@ const path = require('path');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const webpack = require('webpack');
 const Dotenv = require('dotenv-webpack');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
   entry: {
     popup: './src/Popup.tsx',
     background: './src/background.ts',
+    settings: './src/settings/Settings.tsx',
   },
   mode: 'development',
   devtool: 'source-map',
@@ -38,9 +40,18 @@ module.exports = {
     new CopyWebpackPlugin({
       patterns: [
         { from: 'src/manifest.json', to: 'manifest.json' },
-        { from: 'src/popup.html', to: 'popup.html' },
         { from: 'src/icons', to: 'icons' },
       ],
+    }),
+    new HtmlWebpackPlugin({
+      template: './src/popup_template.html',
+      filename: 'popup.html',
+      chunks: ['popup']
+    }),
+    new HtmlWebpackPlugin({
+      template: './src/settings_template.html',
+      filename: 'settings.html',
+      chunks: ['settings']
     }),
     new webpack.ProvidePlugin({
       process: 'process/browser',
