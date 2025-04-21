@@ -72,8 +72,7 @@ This will create the necessary bundled files in the `dist` directory. You can th
 
 *   **Integration with Additional Databases/APIs:** Explore integrating checks against other public threat intelligence feeds or phishing databases (e.g., PhishTank, OpenPhish, Google Safe Browsing API - subject to API terms and availability) to provide more comprehensive results.
 *   **URL Analysis:** Implement basic client-side analysis of URL structure for common phishing patterns (e.g., excessive subdomains, misleading characters).
-*   **Configuration Options:** Allow users to configure API keys or select which databases to query via an options page.
-*   **Improved UI/UX:** Enhance the visual feedback and user flow within the popup.
+*   **VirusTotal** Implement hashing checks from files to virustotal
 
 ## Contributing
 
