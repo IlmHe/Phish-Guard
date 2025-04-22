@@ -4,17 +4,17 @@ import browser from 'webextension-polyfill'; // Add this import
 import { checkUrlInSupabase } from './apiservice';
 import { PhishGuardSettings, StorageData, defaultSettings, ScanResult } from './types';
 
-function extractActualUrl(googleUrl: string): string {
+export function extractActualUrl(googleUrl: string): string {
     const urlMatch = googleUrl.match(/[?&]url=([^&]+)/);
     return urlMatch ? decodeURIComponent(urlMatch[1]) : googleUrl;
 }
 
-function extractDomain(url: string): string {
+export function extractDomain(url: string): string {
     const domainMatch = url.match(/^(?:https?:\/\/)?(?:www\.)?([^\/]+)/i);
     return domainMatch ? domainMatch[1] : url;
 }
 
-const Popup = (): React.ReactElement => {
+export const Popup = (): React.ReactElement => {
     const [url, setUrl] = useState<string>('');
     const [domain, setDomain] = useState<string>('');
     const [scanResult, setScanResult] = useState<ScanResult | null>(null);
@@ -36,13 +36,15 @@ const Popup = (): React.ReactElement => {
             console.log(`Domain to display: ${domainUrl}`);
             setUrl(actualUrl);
             setDomain(domainUrl);
+            handleConfirm(actualUrl);
         }
     }, []);
 
     const extractedUrl = url;
 
-    const handleConfirm = async () => {
-        if (!extractedUrl) {
+    const handleConfirm = async (overrideUrl?: string) => {
+        const urlToUse = overrideUrl || extractedUrl;
+        if (!urlToUse) {
             setError('Could not extract a valid URL.');
             return;
         }
@@ -66,17 +68,17 @@ const Popup = (): React.ReactElement => {
                 supabaseStatus: 'found' | 'not_found' | 'error' | 'not_checked';
                 error?: string;
             } = {
-                url: extractedUrl, // Include the required url
-                robotsUrl: `http://${new URL(extractedUrl).hostname}/robots.txt`,
+                url: urlToUse, // Include the required url
+                robotsUrl: `http://${new URL(urlToUse).hostname}/robots.txt`,
                 sitemapUrl: `https://www.google.com/search?q=${encodeURIComponent(`site:${domain} (filetype:xml OR filetype:txt) inurl:sitemap`)}`, // Use Google Dork
-                virusTotalUrl: `https://www.virustotal.com/gui/url/${encodeURIComponent(extractedUrl)}`,
+                virusTotalUrl: `https://www.virustotal.com/gui/domain/${encodeURIComponent(domain)}`,
                 supabaseStatus: 'not_checked', // Start as not checked
                 error: undefined // Start with no error
             };
 
             // 3. Perform Supabase check and update the resultObject
             try {
-                const isUrlInSupabase = await checkUrlInSupabase(extractedUrl); 
+                const isUrlInSupabase = await checkUrlInSupabase(urlToUse); 
                 resultObject.supabaseStatus = isUrlInSupabase ? 'found' : 'not_found';
             } catch (supabaseError) {
                 console.error('Supabase check failed:', supabaseError);
@@ -107,8 +109,8 @@ const Popup = (): React.ReactElement => {
 
     return (
         <div className="container" style={{ padding: '20px' }}>
-            <h1 className="title">Confirm URL</h1>
-            {!isScanning && !scanResult && (
+            {/* Initial prompt disabled */}
+            {false && !isScanning && !scanResult && (
                 <>
                     <div className="field">
                         <div className="control">
@@ -133,7 +135,7 @@ const Popup = (): React.ReactElement => {
                         </div>
                     </div>
                     <div className="buttons">
-                        <button className="button is-primary" onClick={handleConfirm}>Scan</button>
+                        <button className="button is-primary" onClick={() => { void handleConfirm(); }}>Scan</button>
                         <button className="button is-light" onClick={handleCancel}>Cancel</button>
                     </div>
                 </>
@@ -143,13 +145,18 @@ const Popup = (): React.ReactElement => {
             {/* Results section - shown after scan */}
             {scanResult && (
                 <div className={`notification ${scanResult.supabaseStatus === 'error' ? 'is-danger' : scanResult.supabaseStatus === 'found' ? 'is-warning' : 'is-info'}`}>
-                    <h2>Scan Results</h2>
                     {/* Supabase Status */}
-                    {scanResult.supabaseStatus === 'found' && <p className="has-text-danger"><strong>Status:</strong> Found in Phishing DB (Supabase)</p>}
-                    {scanResult.supabaseStatus === 'not_found' && <p className="has-text-success"><strong>Status:</strong> Not found in Phishing DB (Supabase)</p>}
-                    {scanResult.supabaseStatus === 'error' && <p className="has-text-warning"><strong>Status:</strong> Error checking Phishing DB: {scanResult.error}</p>}
-                    {scanResult.supabaseStatus === 'not_checked' && <p><strong>Status:</strong> Checking Supabase...</p>}
-
+                    {settings.showSupabase && (
+                        <>
+                            {scanResult.supabaseStatus === 'found' && <p className="has-text-danger"><strong>Status:</strong> Found in Phishing DB (Supabase)</p>}
+                            {scanResult.supabaseStatus === 'not_found' && <p className="has-text-success"><strong>Status:</strong> Not found in our own phishing databases.</p>}
+                            {scanResult.supabaseStatus === 'error' && <p className="has-text-warning"><strong>Status:</strong> Error checking Phishing DB: {scanResult.error}</p>}
+                            {scanResult.supabaseStatus === 'not_checked' && <p><strong>Status:</strong> Checking Supabase...</p>}
+                        </>
+                    )}
+                    {/* Display scanned link and domain */}
+                    <p><strong>Link:</strong> <a href={scanResult.url} target="_blank" rel="noopener noreferrer">{scanResult.url}</a></p>
+                    <p><strong>Domain:</strong> {domain}</p>
                     <div className="buttons mt-3"> {/* Add margin-top */} 
                          {settings.showRobotsTxt && scanResult.robotsUrl && (
                              <a href={scanResult.robotsUrl} target="_blank" rel="noopener noreferrer" className="button is-link is-light">
@@ -162,15 +169,9 @@ const Popup = (): React.ReactElement => {
                              </a>
                          )}
                          {settings.showVirusTotal && scanResult.virusTotalUrl && (
-                             <a href={scanResult.virusTotalUrl} target="_blank" rel="noopener noreferrer" className="button is-warning is-light">
-                                VirusTotal Scan
+                             <a href={scanResult.virusTotalUrl} target="_blank" rel="noopener noreferrer" className="button is-link is-light">
+                                VirusTotal Domain Lookup
                              </a>
-                         )}
-                         {/* Conditionally render Supabase button based on settings (maybe disable if checked?) */} 
-                         {settings.showSupabase && (
-                             <button className="button is-info is-light" disabled> {/* Example: Disable button after check */}
-                                 Supabase ({scanResult.supabaseStatus})
-                             </button>
                          )}
                     </div>
 
@@ -181,6 +182,10 @@ const Popup = (): React.ReactElement => {
     );
 };
 
-const container = document.getElementById('root') as HTMLElement;
-const root = createRoot(container);
-root.render(<Popup />);
+const container = document.getElementById('root');
+if (container) {
+  const root = createRoot(container);
+  root.render(<Popup />);
+}
+
+export default Popup;

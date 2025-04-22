@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL as string;
-const supabaseKey = process.env.SUPABASE_KEY as string;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 export async function checkUrlInSupabase(url: string): Promise<boolean> {
+  const supabaseUrl = process.env.SUPABASE_URL as string;
+  const supabaseKey = process.env.SUPABASE_KEY as string;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
   const { data, error } = await supabase
     .from('phish-co-za_urls')
     .select('url')
@@ -17,7 +17,3 @@ export async function checkUrlInSupabase(url: string): Promise<boolean> {
 
   return data.length > 0;
 }
-
-/*
-sitemap ja robots.txt
-*/
