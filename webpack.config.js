@@ -8,7 +8,8 @@ module.exports = {
   entry: {
     popup: './src/Popup.tsx',
     background: './src/background.ts',
-    settings: './src/settings/Settings.tsx',
+    content: './src/content.ts',
+    alert: './src/alert.ts',
   },
   mode: 'development',
   devtool: 'source-map',
@@ -39,7 +40,37 @@ module.exports = {
   plugins: [
     new CopyWebpackPlugin({
       patterns: [
-        { from: 'src/manifest.json', to: 'manifest.json' },
+        {
+          from: 'src/manifest.json',
+          to: 'manifest.json',
+          transform(content) {
+            const manifest = JSON.parse(content.toString());
+
+            // For Chrome/Edge (Manifest V3)
+            if (process.env.TARGET_BROWSER === 'chrome') {
+              return JSON.stringify(manifest, null, 2);
+            }
+
+            // For Firefox (Manifest V2 compatibility)
+            if (process.env.TARGET_BROWSER === 'firefox') {
+              manifest.manifest_version = 2;
+              manifest.background = {
+                scripts: ["background.js"],
+                persistent: false
+              };
+              manifest.browser_action = manifest.action;
+              delete manifest.action;
+              delete manifest.host_permissions;
+              manifest.permissions = [...(manifest.permissions || []), "*://*/*"];
+              manifest.content_security_policy = manifest.content_security_policy?.extension_pages || "script-src 'self'; object-src 'self'";
+              if (typeof manifest.content_security_policy === 'object') {
+                manifest.content_security_policy = manifest.content_security_policy.extension_pages;
+              }
+            }
+
+            return JSON.stringify(manifest, null, 2);
+          }
+        },
         { from: 'src/icons', to: 'icons' },
       ],
     }),
@@ -49,9 +80,9 @@ module.exports = {
       chunks: ['popup']
     }),
     new HtmlWebpackPlugin({
-      template: './src/settings_template.html',
-      filename: 'settings.html',
-      chunks: ['settings']
+      template: './src/alert.html',
+      filename: 'alert.html',
+      chunks: ['alert']
     }),
     new webpack.ProvidePlugin({
       process: 'process/browser',

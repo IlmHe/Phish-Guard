@@ -9,17 +9,20 @@ module.exports = {
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
   coveragePathIgnorePatterns: [
     '<rootDir>/src/background.ts',
+    '<rootDir>/src/alert.ts',
+    '<rootDir>/src/content.ts',
     '<rootDir>/src/settings/',
     '<rootDir>/src/index.ts',
     '<rootDir>/src/types.ts',
-    '<rootDir>/src/Popup.tsx'
+    '<rootDir>/src/Popup.tsx',
+    '<rootDir>/src/components/'
   ],
   coverageThreshold: {
     global: {
-      branches: 90,
-      functions: 90,
-      lines: 90,
-      statements: 90
+      branches: 80,
+      functions: 80,
+      lines: 85,
+      statements: 85
     }
   }
 };

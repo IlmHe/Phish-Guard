@@ -1,13 +1,253 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>Phish Guard</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.0/css/bulma.min.css"> <!-- Add Bulma CSS -->
-    <!-- Add link to CSS files if necessary -->
-</head>
-<body>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma@1.0.0/css/bulma.min.css"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        padding: 0;
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        overflow-x: hidden;
+        font-size: 14px;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      }
+      .popup-container {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        padding: 20px;
+      }
+      .content-card {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        padding: 24px;
+        margin: 0 auto;
+        max-width: 100%;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .phish-guard-title {
+        text-align: left;
+        color: #ffffff;
+        font-weight: 700;
+        margin-bottom: 0;
+        font-size: 1.8rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .url-display {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 14px;
+        border-radius: 8px;
+        border-left: 4px solid #70a1ff;
+        margin-bottom: 18px;
+        word-break: break-all;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        color: #a8a8a8;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .url-display strong {
+        color: #ffffff;
+      }
+      .loader {
+        text-align: center;
+        padding: 40px;
+        font-size: 1.1rem;
+        color: #ffffff;
+        font-weight: 500;
+      }
+      .loader::after {
+        content: '';
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255, 255, 255, 0.2);
+        border-top: 3px solid #70a1ff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-left: 10px;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .spinner {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(255, 255, 255, 0.2);
+        border-top: 4px solid #70a1ff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      .action-buttons {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .action-buttons .button {
+        flex: 1;
+        min-width: 200px;
+        font-weight: 600;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        text-align: center;
+        display: inline-block;
+      }
+      .action-buttons .button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      /* Dark theme notifications */
+      .notification.is-danger {
+        background-color: rgba(255, 71, 87, 0.15);
+        color: #ff4757;
+        border: 1px solid rgba(255, 71, 87, 0.3);
+      }
+      .notification.is-warning {
+        background-color: rgba(255, 165, 2, 0.15);
+        color: #ffa502;
+        border: 1px solid rgba(255, 165, 2, 0.3);
+      }
+      .notification.is-info {
+        background-color: rgba(112, 161, 255, 0.15);
+        color: #70a1ff;
+        border: 1px solid rgba(112, 161, 255, 0.3);
+      }
+      .notification.is-success {
+        background-color: rgba(38, 222, 129, 0.15);
+        color: #26de81;
+        border: 1px solid rgba(38, 222, 129, 0.3);
+      }
+
+      /* Dark theme messages */
+      .message.is-danger .message-header {
+        background-color: rgba(255, 71, 87, 0.2);
+        color: #ff4757;
+        border-bottom: 1px solid rgba(255, 71, 87, 0.3);
+      }
+      .message.is-danger .message-body {
+        background-color: rgba(255, 71, 87, 0.1);
+        color: #ffffff;
+        border: 1px solid rgba(255, 71, 87, 0.3);
+      }
+      .message.is-warning .message-header {
+        background-color: rgba(255, 165, 2, 0.2);
+        color: #ffa502;
+        border-bottom: 1px solid rgba(255, 165, 2, 0.3);
+      }
+      .message.is-warning .message-body {
+        background-color: rgba(255, 165, 2, 0.1);
+        color: #ffffff;
+        border: 1px solid rgba(255, 165, 2, 0.3);
+      }
+      .message.is-info .message-header {
+        background-color: rgba(112, 161, 255, 0.2);
+        color: #70a1ff;
+        border-bottom: 1px solid rgba(112, 161, 255, 0.3);
+      }
+      .message.is-info .message-body {
+        background-color: rgba(112, 161, 255, 0.1);
+        color: #ffffff;
+        border: 1px solid rgba(112, 161, 255, 0.3);
+      }
+      .message.is-success .message-header {
+        background-color: rgba(38, 222, 129, 0.2);
+        color: #26de81;
+        border-bottom: 1px solid rgba(38, 222, 129, 0.3);
+      }
+      .message.is-success .message-body {
+        background-color: rgba(38, 222, 129, 0.1);
+        color: #ffffff;
+        border: 1px solid rgba(38, 222, 129, 0.3);
+      }
+
+      /* Better text contrast for dark theme */
+      .has-text-danger {
+        color: #ff4757 !important;
+        font-weight: 600;
+      }
+      .has-text-warning {
+        color: #ffa502 !important;
+        font-weight: 600;
+      }
+      .has-text-success {
+        color: #26de81 !important;
+        font-weight: 600;
+      }
+
+      /* Button improvements for dark theme */
+      .button.is-light.is-fullwidth {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        font-weight: 600;
+        padding: 14px;
+        font-size: 1rem;
+        transition: all 0.3s;
+      }
+      .button.is-light.is-fullwidth:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+      }
+
+      /* Override Bulma button styles for dark theme */
+      .button {
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s;
+      }
+      .button.is-success {
+        background-color: #26de81;
+        border: none;
+      }
+      .button.is-success:hover {
+        background-color: #20c770;
+        transform: translateY(-2px);
+      }
+      .button.is-info {
+        background-color: #70a1ff;
+        border: none;
+      }
+      .button.is-info:hover {
+        background-color: #5d8cff;
+        transform: translateY(-2px);
+      }
+      .button.is-light {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+      .button.is-light:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+      .button.is-small {
+        font-size: 0.8rem;
+        padding: 6px 12px;
+      }
+    </style>
+  </head>
+  <body>
     <div id="root"></div>
     <!-- Webpack will inject the script tag here -->
-</body>
+  </body>
 </html>

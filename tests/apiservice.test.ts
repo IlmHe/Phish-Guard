@@ -1,4 +1,4 @@
-import { checkUrlInSupabase } from '../src/apiservice';
+import { checkUrlInSupabase, SupabaseService } from '../src/services/apiservice';
 import { createClient } from '@supabase/supabase-js';
 
 jest.mock('@supabase/supabase-js', () => ({
@@ -17,6 +17,8 @@ describe('checkUrlInSupabase', () => {
       }),
     });
     mockEq.mockReset();
+    // Clear cache between tests
+    SupabaseService.getInstance().clearCache();
   });
 
   it('returns true when data is found', async () => {
@@ -38,9 +40,9 @@ describe('checkUrlInSupabase', () => {
   });
 
   it('throws an error when supabase returns error', async () => {
-    mockEq.mockResolvedValue({ data: [], error: new Error('fail') });
+    mockEq.mockResolvedValue({ data: [], error: { message: 'Database error' } });
     await expect(
       checkUrlInSupabase('http://example.com')
-    ).rejects.toThrow('Failed to query Supabase');
+    ).rejects.toThrow('Database query failed');
   });
 });

@@ -1,82 +1,202 @@
 # Phish-Guard
 
-Phish-Guard is a lightweight browser extension designed to help users identify potentially malicious URLs by checking them against a known phishing database and providing quick links for further investigation.
+A browser extension I built to catch phishing sites that browsers often miss. It monitors external resources loaded by websites and lets you manually scan suspicious links.
+
+**Note:** This is a personal project - not perfect, but it works! Issues and contributions are welcome.
 
 ## Current Features
 
-*   **Context Menu Integration:** Right-click on links or selected text to initiate a scan.
-*   **URL Confirmation:** Presents the identified URL in a popup for confirmation before scanning.
-*   **Database Check:** Verifies the URL against a user-managed Supabase database of known phishing sites.
-*   **Status Indication:** Clearly indicates if the URL was found in the database or not.
-*   **VirusTotal Integration:** Provides a direct link to check the URL's domain on VirusTotal.
-*   **Site File Access:** Offers quick links to attempt viewing the site's `robots.txt` and to search for its sitemap (`sitemap.xml` or `sitemap.txt`) via Google.
+### **Automatic Resource Monitoring (All Websites)**
+*   **External Resource Analysis:** Automatically scans external resources (scripts, iframes, images, stylesheets) loaded by websites
+*   **Mixed Content Detection:** Identifies HTTP resources loaded on HTTPS pages
+*   **Suspicious Pattern Detection:** Detects IP addresses, free domains (.tk, .ml), and suspicious keywords in external resources only
+*   **Dynamic Monitoring:** Continuously monitors for new suspicious external resources added via JavaScript
+*   **Security Alerts:** Automatic notifications when pages load high-risk external resources (risk score > 30)
+*   **Local Analysis Only:** No external API calls during automatic monitoring - all analysis happens in your browser
 
-## Installation & Running
+### **Manual Scanning Features**
+*   **Context Menu Integration:** Right-click on links or selected text to initiate detailed scans
+*   **URL Validation & Sanitization:** Robust URL validation and sanitization before processing
+*   **Database Check:** Verifies URLs against a Supabase database of known phishing sites (primarily South African sources)
+*   **Homograph & Punycode Detection:** Advanced detection of suspicious domains using lookalike characters and mixed scripts
+*   **Domain Information:** WHOIS data retrieval for registration details and domain age analysis
+*   **Certificate Analysis:** SSL certificate validation and expiration monitoring
+*   **Risk Assessment:** Intelligent risk scoring (0-100) with clear recommendations
 
-### Prerequisites
+### **External Links & Local Analysis**
+*   **VirusTotal Links:** Direct links to manually check domains on VirusTotal (no API integration)
+*   **Site File Access:** Links to robots.txt and Google sitemap searches
+*   **Local Threat Intelligence:** Simulated API responses using local pattern analysis (not real external APIs)
+*   **Manifest V3 Compatible:** Chrome extension standards compliance
+*   **Enhanced Security:** Content Security Policy, input validation, and secure URL handling
 
-*   [Node.js](https://nodejs.org/) (LTS version recommended)
-*   [npm](https://www.npmjs.com/) (comes with Node.js)
-*   Supabase Project: You need a Supabase project with a table (e.g., `phish-co-za_urls`) containing a `url` column for known phishing sites. (currently using my own supabase which gets populated by co_za_urls)
+## Setup
 
-### Setup
+### What You Need
 
-1.  Clone the repository:
+*   [Node.js](https://nodejs.org/) - grab the LTS version
+*   npm (comes with Node.js)
+*   **Optional:** Supabase account if you want the phishing database feature (I'm using my own with South African phishing URLs, but you can skip this or set up your own)
+
+### Installation
+
+1.  Clone it:
     ```bash
     git clone https://github.com/IlmHe/Phish-Guard.git
     cd Phish-Guard
     ```
 
-2.  Create a `.env` file in the `Phish-Guard` directory with your Supabase credentials:
+2.  (Optional) Create a `.env` file if you want Supabase phishing database:
     ```dotenv
-    SUPABASE_URL="YOUR_SUPABASE_URL"
-    SUPABASE_KEY="YOUR_SUPABASE_ANON_KEY"
+    SUPABASE_URL="https://your-project.supabase.co"
+    SUPABASE_KEY="your-anon-key-here"
     ```
-    *(Replace `YOUR_SUPABASE_URL` and `YOUR_SUPABASE_ANON_KEY` with your actual Supabase project URL and anon key.)*
+    The extension works without this - you'll just skip the phishing database check.
 
-3.  Install dependencies:
+3.  Install packages:
     ```bash
     npm install
     ```
 
-### Development
+### Development Mode
 
-To run the extension in a development environment with automatic reloading:
+Works on both Firefox and Chrome:
 
+**For Firefox:**
 ```bash
-npm start
+npm run start:firefox
 ```
 
-This command uses `web-ext` to run the extension in a temporary browser profile (usually Firefox). It watches for file changes and rebuilds/reloads the extension automatically. Your `.env` file will be used during the build process.
-
-### Production Build
-
-To create a distributable version of the extension (e.g., for manual installation or publishing):
-
+**For Chrome:**
 ```bash
-npm run build
+npm run start:chrome
 ```
 
-This will create the necessary bundled files in the `dist` directory. You can then load this `dist` directory as an unpacked extension in your browser (Chrome, Firefox, Edge, etc.).
+These use `web-ext` to run the extension with hot reload - changes update automatically.
+
+### Build for Production
+
+**Chrome:**
+```bash
+npm run build:chrome
+# or package for Web Store:
+npm run package:chrome  # creates phish-guard-chrome.zip
+```
+
+**Firefox:**
+```bash
+npm run build:firefox
+# or package for Add-on store:
+npm run package:firefox  # creates phish-guard-firefox.zip
+```
+
+Built files go to `dist/` (Chrome) or `dist-firefox/` (Firefox).
+
+## How It Works
+
+The scanner runs multiple checks and combines them into a risk score (0-100). Here's what it looks for:
+
+### Risk Score Levels
+
+- **0-29**: LOW (probably safe)
+- **30-59**: MEDIUM (be careful)
+- **60-79**: HIGH (likely sketchy)
+- **80-100**: CRITICAL (definitely bad news)
+
+### What Gets Checked
+
+#### 1. **Phishing Database**
+- **+80 points**: Found in my phishing database (South African URLs mostly)
+- Shows "Found in phishing database" or "Clean"
+
+#### 2. **Homograph/Typosquatting**
+Catches fake domains that look real:
+- **+60 points**: Similar to popular brands (like "rnicrosoft.com")
+- **+40 points**: Mixed scripts (Cyrillic 'а' in "exаmple.com")
+- **+35 points**: Lookalike Unicode characters
+- **+30 points**: Punycode domains (xn--)
+
+#### 3. **Domain Age**
+- **+25 points**: Domain less than 90 days old
+- Shows how old the domain is
+
+#### 4. **Certificate Age** ⭐
+Catches sketchy patterns browsers miss:
+- **+25 points**: Certificate issued <24 hours ago
+- **+15 points**: Certificate <7 days old
+- **+10 points**: Free CA (Let's Encrypt) on brand new domain
+- **Why it matters**: A 2-hour-old domain with a 2-hour-old cert is suspicious, but browsers just show "Secure 🔒"
+- Uses Certificate Transparency logs (crt.sh with 15s timeout)
+
+#### 5-9. **Other Checks**
+- **+40 points**: IP address as domain
+- **+30 points**: Suspicious keywords (verify, security, malware)
+- **+25 points**: Sketchy TLDs (.tk, .ml, .click, .download)
+- **+20 points**: Too many subdomains or URL shorteners
+- **+15 points**: No HTTPS
+- And more...
+
+### Two Display Modes
+
+**Simple Mode** - Clean view with the essentials:
+- Domain age, HTTPS status, certificate age
+- Overall risk level
+- Database status
+- Resource scan results
+
+**Advanced Mode** - Full breakdown:
+- Complete risk analysis with point values
+- All detected threats
+- Suspicious external resources
+- WHOIS data
+- Links to VirusTotal, URLScan.io, SSL Labs, etc.
+
+### Limitations (Being Honest)
+
+This doesn't:
+- ❌ Download/scan files for malware
+- ❌ Run pages in a sandbox
+- ❌ Analyze page content/text
+- ❌ Track your browsing
+
+Most analysis happens locally in your browser.
 
 ## Usage
 
-1.  While browsing, right-click on a link, selected text containing a URL, or anywhere on a page (to scan the page's URL).
-2.  Select "Scan with Phish-Guard" from the context menu.
-3.  A popup window will appear showing the detected URL and domain.
-4.  Click "Scan" to check the URL against the Supabase database and get links for VirusTotal, `robots.txt`, and sitemap search.
-5.  The results will indicate if the URL was found in the database and provide the relevant links.
-6.  Click "Close" or "Cancel" to dismiss the popup.
+**Automatic Monitoring** (optional, disabled by default):
+- Watches external resources loaded by pages
+- Shows alerts for high-risk resources
+- All analysis is local (no API calls)
+- Check console for logs: `🛡️ Phish Guard: Scan completed`
 
-## Future Plans
+**Manual Scanning:**
+1. Right-click any link or page
+2. Select "Scan with Phish-Guard"
+3. See results in popup window
+4. Toggle Simple/Advanced modes
+5. Click links to check on VirusTotal, URLScan.io, etc.
 
-*   **Integration with Additional Databases/APIs:** Explore integrating checks against other public threat intelligence feeds or phishing databases (e.g., PhishTank, OpenPhish, Google Safe Browsing API - subject to API terms and availability) to provide more comprehensive results.
-*   **URL Analysis:** Implement basic client-side analysis of URL structure for common phishing patterns (e.g., excessive subdomains, misleading characters).
-*   **VirusTotal** Implement hashing checks from files to virustotal
+## TODO / Ideas
+
+- Real API integrations (PhishTank, Safe Browsing)
+- Better pattern detection
+- ML-based detection maybe?
+- User reporting for false positives
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit issues or pull requests.
+Found a bug? Have an idea? PRs and issues are welcome! This is my first browser extension so code quality isn't perfect.
+
+## Learn More
+
+I wrote a detailed blog post about everything I learned building Phish-Guard: [What I Learned Building Phish-Guard](https://thecyberproject.fi/posts/what-i-learned-building-phish-guard/)
+
+Covers:
+- SSL certificates and Certificate Transparency logs
+- Homograph attacks and Unicode detection
+- iFrame monitoring and external resource analysis
+- Mixed content security implications
+- All the mistakes and edge cases I discovered
 
 ## License
 

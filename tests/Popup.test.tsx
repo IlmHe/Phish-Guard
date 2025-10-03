@@ -1,15 +1,26 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import Popup, { extractActualUrl, extractDomain } from '../src/Popup';
+import Popup from '../src/Popup';
+import { extractActualUrl, extractDomain } from '../src/utils/utils';
 import browser from 'webextension-polyfill';
-import { checkUrlInSupabase } from '../src/apiservice';
+import { checkUrlInSupabase } from '../src/services/apiservice';
 import { defaultSettings } from '../src/types';
 
 jest.mock('webextension-polyfill', () => ({
   storage: { sync: { get: jest.fn() } }
 }));
-jest.mock('../src/apiservice', () => ({
+jest.mock('../src/services/apiservice', () => ({
   checkUrlInSupabase: jest.fn()
+}));
+
+jest.mock('../src/services/homographDetector', () => ({
+  HomographDetector: {
+    detectSuspiciousDomain: jest.fn().mockReturnValue({
+      riskScore: 0,
+      recommendation: 'safe',
+      suspiciousPatterns: []
+    })
+  }
 }));
 
 describe('Popup component', () => {
@@ -24,7 +35,7 @@ describe('Popup component', () => {
     });
     (checkUrlInSupabase as jest.Mock).mockResolvedValue(false);
     render(<Popup />);
-    expect(await screen.findByText(/Not found in our own phishing databases/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Not found in our phishing databases/i)).toBeInTheDocument();
     expect(screen.getByText(/Link:/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'https://example.com/path' })).toHaveAttribute('href', 'https://example.com/path');
     expect(screen.getByText(/Domain:/)).toBeInTheDocument();
