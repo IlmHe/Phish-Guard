@@ -167,7 +167,7 @@ export class ReputationService {
       factors.push({
         category: 'SSL Certificate',
         impact: 15,
-        description: 'No SSL encryption',
+        description: 'No HTTPS/SSL encryption',
         evidence: 'Site does not use HTTPS encryption'
       });
       threatTypes.push({
@@ -478,7 +478,7 @@ export class ReputationService {
    */
   private static isSuspiciousRegistrar(registrar: string): boolean {
     const suspiciousRegistrars = [
-      'freenom', 'namecheap', 'domains4bitcoins', 'regru'
+      'freenom', 'domains4bitcoins', 'regru'
     ];
     const registrarLower = registrar.toLowerCase();
     return suspiciousRegistrars.some(suspicious => registrarLower.includes(suspicious));

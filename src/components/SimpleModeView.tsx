@@ -67,7 +67,7 @@ export const SimpleModeView: React.FC<SimpleModeViewProps> = ({
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
             <span>🔍 Database Status:</span>
             <span className={scanResult.supabaseStatus === 'found' ? 'has-text-danger' : 'has-text-success'}>
-              {scanResult.supabaseStatus === 'found' ? 'Known Threat!' : 'Clean'}
+              {scanResult.supabaseStatus === 'found' ? 'Found in Phishing DB' : 'Not found in our phishing databases'}
             </span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>

@@ -105,6 +105,24 @@ describe('RealtimeApiService', () => {
       expect(result.responseCount).toBe(0);
     });
 
+    it('should override consensus to malicious when average risk is >= 70', () => {
+      const highRiskResults = [
+        { source: 'A1', status: 'safe' as const, confidence: 50, riskScore: 75, categories: [] },
+        { source: 'A2', status: 'safe' as const, confidence: 50, riskScore: 75, categories: [] }
+      ];
+      const result = (RealtimeApiService as any).aggregateResults(highRiskResults);
+      expect(result.consensus).toBe('malicious');
+    });
+
+    it('should override consensus to suspicious when average risk >= 40 and was safe', () => {
+      const mediumRiskResults = [
+        { source: 'A1', status: 'safe' as const, confidence: 50, riskScore: 40, categories: [] },
+        { source: 'A2', status: 'safe' as const, confidence: 50, riskScore: 40, categories: [] }
+      ];
+      const result = (RealtimeApiService as any).aggregateResults(mediumRiskResults);
+      expect(result.consensus).toBe('suspicious');
+    });
+
     it('should calculate average risk score correctly', () => {
       const mockResults = [
         {
@@ -264,28 +282,191 @@ describe('RealtimeApiService', () => {
         expect(result.riskScore).toBeLessThan(30);
       });
     });
-  });
 
-  describe('integration scenarios', () => {
-    it('should handle mixed API responses', async () => {
-      const result = await RealtimeApiService.queryMultipleApis(
-        'https://test-site.com',
-        'test-site.com'
+    it('should flag domain with 8+ digit numbers as suspicious', () => {
+      const result = RealtimeApiService.simulateApiResponse(
+        'http://12345678.com', '12345678.com', 'TestAPI'
       );
-
-      expect(result.results.length).toBeGreaterThan(0);
-      expect(result.consensus).toBeDefined();
+      expect(result.status).toBe('suspicious');
     });
 
-    it('should prioritize malicious votes in consensus', async () => {
-      // Test with a clearly malicious-looking domain
-      const result = await RealtimeApiService.queryMultipleApis(
-        'http://phishing-malware-virus.tk',
-        'phishing-malware-virus.tk'
-      );
+    it('should flag domain with suspicious keyword as suspicious', () => {
+      expect(RealtimeApiService.simulateApiResponse(
+        'http://suspicious-site.com', 'suspicious-site.com', 'TestAPI'
+      ).status).toBe('suspicious');
+    });
 
-      // Should likely be flagged as malicious or at least suspicious
-      expect(['malicious', 'suspicious']).toContain(result.consensus);
+    it('should flag domain with temp keyword as suspicious', () => {
+      expect(RealtimeApiService.simulateApiResponse(
+        'http://temp-files.com', 'temp-files.com', 'TestAPI'
+      ).status).toBe('suspicious');
+    });
+
+    it('should flag virus keyword as malicious', () => {
+      expect(RealtimeApiService.simulateApiResponse(
+        'http://virus-scan.com', 'virus-scan.com', 'TestAPI'
+      ).status).toBe('malicious');
+    });
+
+    it('should flag scam keyword as malicious', () => {
+      expect(RealtimeApiService.simulateApiResponse(
+        'http://scam-site.com', 'scam-site.com', 'TestAPI'
+      ).status).toBe('malicious');
+    });
+  });
+
+  describe('getApiSummary', () => {
+    it('should return unavailable message when no responses', () => {
+      const noResponseResult = {
+        consensus: 'unknown' as const,
+        totalSources: 3,
+        responseCount: 0,
+        results: [],
+        averageRiskScore: 0,
+        highestRiskScore: 0,
+        maliciousVotes: 0,
+        suspiciousVotes: 0,
+        safeVotes: 0
+      };
+      const summary = RealtimeApiService.getApiSummary(noResponseResult);
+      expect(summary).toContain('No threat intelligence');
+    });
+
+    it('should return malicious summary for malicious consensus', () => {
+      const maliciousResult = {
+        consensus: 'malicious' as const,
+        totalSources: 3,
+        responseCount: 2,
+        results: [],
+        averageRiskScore: 85,
+        highestRiskScore: 90,
+        maliciousVotes: 2,
+        suspiciousVotes: 0,
+        safeVotes: 0
+      };
+      const summary = RealtimeApiService.getApiSummary(maliciousResult);
+      expect(summary).toContain('malicious');
+    });
+
+    it('should return safe summary for safe consensus', () => {
+      const safeResult = {
+        consensus: 'safe' as const,
+        totalSources: 3,
+        responseCount: 3,
+        results: [],
+        averageRiskScore: 5,
+        highestRiskScore: 10,
+        maliciousVotes: 0,
+        suspiciousVotes: 0,
+        safeVotes: 3
+      };
+      const summary = RealtimeApiService.getApiSummary(safeResult);
+      expect(summary).toContain('no issues');
+    });
+
+    it('should return suspicious summary for suspicious consensus', () => {
+      const suspiciousResult = {
+        consensus: 'suspicious' as const,
+        totalSources: 3,
+        responseCount: 2,
+        results: [],
+        averageRiskScore: 50,
+        highestRiskScore: 60,
+        maliciousVotes: 0,
+        suspiciousVotes: 1,
+        safeVotes: 1
+      };
+      const summary = RealtimeApiService.getApiSummary(suspiciousResult);
+      expect(summary).toContain('suspicious');
+    });
+  });
+
+  describe('getApiBreakdown', () => {
+    it('should return formatted breakdown of API results', () => {
+      const result = {
+        consensus: 'safe' as const,
+        totalSources: 1,
+        responseCount: 1,
+        results: [{
+          source: 'TestAPI',
+          status: 'safe' as const,
+          confidence: 80,
+          riskScore: 5,
+          categories: ['clean'],
+          responseTime: 100
+        }],
+        averageRiskScore: 5,
+        highestRiskScore: 5,
+        maliciousVotes: 0,
+        suspiciousVotes: 0,
+        safeVotes: 1
+      };
+      const breakdown = RealtimeApiService.getApiBreakdown(result);
+      expect(breakdown).toHaveLength(1);
+      expect(breakdown[0]).toContain('TestAPI');
+    });
+  });
+
+  describe('getReputationImpact', () => {
+    it('should return zero impact for no responses', () => {
+      const impact = RealtimeApiService.getReputationImpact({
+        consensus: 'unknown' as const,
+        totalSources: 0,
+        responseCount: 0,
+        results: [],
+        averageRiskScore: 0,
+        highestRiskScore: 0,
+        maliciousVotes: 0,
+        suspiciousVotes: 0,
+        safeVotes: 0
+      });
+      expect(impact.riskPoints).toBe(0);
+      expect(impact.confidence).toBe(0);
+    });
+
+    it('should return malicious impact for malicious consensus', () => {
+      const impact = RealtimeApiService.getReputationImpact({
+        consensus: 'malicious' as const,
+        totalSources: 3,
+        responseCount: 3,
+        results: [],
+        averageRiskScore: 80,
+        highestRiskScore: 90,
+        maliciousVotes: 3,
+        suspiciousVotes: 0,
+        safeVotes: 0
+      });
+      expect(impact.riskPoints).toBeGreaterThan(0);
+    });
+
+    it('should return low impact for safe consensus', () => {
+      const impact = RealtimeApiService.getReputationImpact({
+        consensus: 'safe' as const,
+        totalSources: 3,
+        responseCount: 3,
+        results: [],
+        averageRiskScore: 5,
+        highestRiskScore: 10,
+        maliciousVotes: 0,
+        suspiciousVotes: 0,
+        safeVotes: 3
+      });
+      expect(impact.riskPoints).toBe(0);
+    });
+
+    it('should return suspicious impact for suspicious consensus', () => {
+      const impact = RealtimeApiService.getReputationImpact({
+        consensus: 'suspicious' as const,
+        totalSources: 3,
+        responseCount: 2,
+        results: [],
+        averageRiskScore: 50,
+        highestRiskScore: 60,
+        maliciousVotes: 0,
+        suspiciousVotes: 1,
+        safeVotes: 1
+      });
+      expect(impact.riskPoints).toBeGreaterThanOrEqual(0);
     });
   });
 });

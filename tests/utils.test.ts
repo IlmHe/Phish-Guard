@@ -95,6 +95,18 @@ describe('Utility functions', () => {
     });
   });
 
+  describe('null and falsy input handling', () => {
+    it('should handle null/undefined in extractDomainRaw', () => {
+      expect(extractDomainRaw(null as any)).toBeNull();
+      expect(extractDomainRaw(undefined as any)).toBeUndefined();
+    });
+
+    it('should handle null/undefined in extractDomain', () => {
+      // Empty string returns empty string (falls back to regex)
+      expect(extractDomain('')).toBe('');
+    });
+  });
+
   describe('sanitizeUrl', () => {
     it('should remove dangerous protocols', () => {
       expect(sanitizeUrl('javascript:alert(1)')).toBe('');

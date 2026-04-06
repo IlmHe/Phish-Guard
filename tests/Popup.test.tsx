@@ -7,7 +7,14 @@ import { checkUrlInSupabase } from '../src/services/apiservice';
 import { defaultSettings } from '../src/types';
 
 jest.mock('webextension-polyfill', () => ({
-  storage: { sync: { get: jest.fn() } }
+  storage: { sync: { get: jest.fn(), set: jest.fn().mockResolvedValue(undefined) } },
+  tabs: {
+    query: jest.fn().mockResolvedValue([]),
+    sendMessage: jest.fn().mockResolvedValue(null)
+  },
+  runtime: {
+    sendMessage: jest.fn().mockResolvedValue(null)
+  }
 }));
 jest.mock('../src/services/apiservice', () => ({
   checkUrlInSupabase: jest.fn()
@@ -20,6 +27,26 @@ jest.mock('../src/services/homographDetector', () => ({
       recommendation: 'safe',
       suspiciousPatterns: []
     })
+  }
+}));
+
+jest.mock('../src/services/domainInfoService', () => ({
+  DomainInfoService: {
+    getDomainInfo: jest.fn().mockResolvedValue(null),
+    getCertificateInfo: jest.fn().mockResolvedValue(null)
+  }
+}));
+
+jest.mock('../src/services/sitemapService', () => ({
+  SitemapService: {
+    findSitemaps: jest.fn().mockResolvedValue({ found: false, urls: [], method: 'search', attempts: [] })
+  }
+}));
+
+jest.mock('../src/services/certificateAnalysisService', () => ({
+  CertificateAnalysisService: {
+    analyzeCertificate: jest.fn().mockResolvedValue({ error: 'mocked', riskPoints: 0, riskFactors: [], certAgeDays: null, certAgeHours: null, isNewCert: false, isVeryNewCert: false, isFreeCA: false, issuer: null, notBefore: null }),
+    isHighRiskPattern: jest.fn().mockReturnValue(false)
   }
 }));
 

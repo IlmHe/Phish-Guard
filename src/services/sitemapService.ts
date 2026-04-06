@@ -128,12 +128,11 @@ export class SitemapService {
       const url = `${protocol}${domain}${path}`;
 
       try {
-        // Use HEAD request to check if sitemap exists without downloading content
+        // Use GET request to fetch content and validate it is a real sitemap
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
 
         const response = await fetch(url, {
-          method: 'HEAD',
           headers: {
             'User-Agent': 'Phish-Guard/1.0 (Sitemap Detection)'
           },
@@ -142,8 +141,26 @@ export class SitemapService {
 
         clearTimeout(timeoutId);
 
-        if (response.ok && this.isValidSitemapResponse(response)) {
-          foundUrls.push(url);
+        if (response.ok) {
+          // Read up to 10KB to validate sitemap content without downloading huge files
+          const reader = response.body?.getReader();
+          let content = '';
+          if (reader) {
+            const MAX_BYTES = 10 * 1024;
+            let bytesRead = 0;
+            while (bytesRead < MAX_BYTES) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              content += new TextDecoder().decode(value);
+              bytesRead += value.byteLength;
+            }
+            reader.cancel();
+          } else {
+            content = await response.text();
+          }
+          if (this.isSitemapContent(content)) {
+            foundUrls.push(url);
+          }
         }
       } catch (error) {
         // Try HTTP if HTTPS failed for first URL
@@ -154,7 +171,6 @@ export class SitemapService {
             const httpTimeoutId = setTimeout(() => httpController.abort(), 2000);
 
             const httpResponse = await fetch(httpUrl, {
-              method: 'HEAD',
               headers: {
                 'User-Agent': 'Phish-Guard/1.0 (Sitemap Detection)'
               },
@@ -163,8 +179,11 @@ export class SitemapService {
 
             clearTimeout(httpTimeoutId);
 
-            if (httpResponse.ok && this.isValidSitemapResponse(httpResponse)) {
-              foundUrls.push(httpUrl);
+            if (httpResponse.ok) {
+              const httpContent = await httpResponse.text();
+              if (this.isSitemapContent(httpContent)) {
+                foundUrls.push(httpUrl);
+              }
             }
           } catch (httpError) {
             // HTTP fallback also failed
@@ -202,9 +221,8 @@ export class SitemapService {
           const robotsContent = await response.text();
           const sitemapUrls = this.extractSitemapsFromRobots(robotsContent);
 
-          if (sitemapUrls.length > 0) {
-            return { urls: sitemapUrls, robotsContent };
-          }
+          // Always return the content if the request succeeded (even without sitemaps)
+          return { urls: sitemapUrls, robotsContent };
         }
       } catch (error) {
         // Failed to fetch robots.txt
@@ -245,15 +263,16 @@ export class SitemapService {
   }
 
   /**
-   * Check if response is likely a valid sitemap
+   * Check if content looks like a valid XML sitemap
    */
-  private static isValidSitemapResponse(response: Response): boolean {
-    const contentType = response.headers.get('content-type') || '';
-
-    // Check for XML content type
-    return contentType.includes('xml') ||
-           contentType.includes('text/xml') ||
-           contentType.includes('application/xml');
+  private static isSitemapContent(content: string): boolean {
+    if (!content || content.trim().length === 0) {
+      return false;
+    }
+    const trimmed = content.trim().toLowerCase();
+    return trimmed.includes('<urlset') ||
+           trimmed.includes('<sitemapindex') ||
+           (trimmed.startsWith('<?xml') && trimmed.includes('sitemap'));
   }
 
   /**
