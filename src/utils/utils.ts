@@ -9,8 +9,8 @@ export function extractDomainRaw(url: string): string {
   }
 
   // Use regex to extract domain WITHOUT URL constructor (preserves Unicode)
-  // Match: optional http(s)://, optional www., capture domain until / or end
-  const domainMatch = url.match(/^(?:https?:\/\/)?(?:www\.)?([^\/\s:?#]+)/i);
+  // Match: optional http(s)://, optional www., capture domain (including port) until / or end
+  const domainMatch = url.match(/^(?:https?:\/\/)?(?:www\.)?([^\/\s?#]+)/i);
   const domain = domainMatch ? domainMatch[1] : url;
 
   // Remove www prefix if present

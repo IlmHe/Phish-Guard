@@ -7,17 +7,26 @@ export class DomainInfoService {
     private static lastRequestTime = 0;
     private static readonly MIN_REQUEST_INTERVAL_MS = 1000; // 1 second between WHOIS requests
 
+    // In-memory cache: domain → { info, timestamp }
+    private static readonly cache = new Map<string, { info: DomainInfo | null; timestamp: number }>();
+    private static readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
     /**
      * Get domain information including age, registrar, etc.
      */
     public static async getDomainInfo(domain: string): Promise<DomainInfo | null> {
+        // Check cache first
+        const cached = this.cache.get(domain);
+        if (cached && Date.now() - cached.timestamp < this.CACHE_TTL_MS) {
+            return cached.info;
+        }
+
         try {
-            // Try to fetch from API first, then fallback to manual lookup
             const domainInfo = await this.fetchDomainInfoFromAPI(domain);
+            this.cache.set(domain, { info: domainInfo, timestamp: Date.now() });
             return domainInfo;
         } catch (error) {
-            // Return fallback info with manual lookup URLs
-            return this.createFallbackDomainInfo(domain);
+            return null;
         }
     }
 
@@ -38,7 +47,7 @@ export class DomainInfoService {
     /**
      * Try to fetch domain info from a free WHOIS API with timeout and fallback
      */
-    private static async fetchDomainInfoFromAPI(domain: string): Promise<DomainInfo> {
+    private static async fetchDomainInfoFromAPI(domain: string): Promise<DomainInfo | null> {
         // Skip API calls for IP addresses or invalid domains
         if (/^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/.test(domain)) {
             return this.createFallbackDomainInfo(domain);
@@ -83,12 +92,15 @@ export class DomainInfoService {
                     const data = await response.json();
                     return this.parseAPIResponse(data, domain);
                 }
+                // If response is not ok, try the next API
             } catch (error) {
+                // Network error or abort - try the next API
                 continue;
             }
         }
 
-        return this.createFallbackDomainInfo(domain);
+        // All APIs failed - return null (no data available)
+        return null;
     }
 
     /**
@@ -102,41 +114,60 @@ export class DomainInfoService {
     }
 
     /**
+     * Parse raw WHOIS API response into a normalized structure
+     */
+    private static parseWhoisData(data: any): { registrar?: string; creationDate?: string; expirationDate?: string } {
+        const result: { registrar?: string; creationDate?: string; expirationDate?: string } = {};
+
+        // Extract registrar from various field names
+        if (data.registrar || data.registrar_name) {
+            result.registrar = data.registrar || data.registrar_name;
+        }
+
+        // Extract creation date from various field names
+        const creationDate = data.creation_date || data.created_date || data.createdDate || data.created;
+        if (creationDate) {
+            result.creationDate = creationDate;
+        }
+
+        // Extract expiration date from various field names
+        const expirationDate = data.expiration_date || data.expires_date || data.expirationDate || data.expires;
+        if (expirationDate) {
+            result.expirationDate = expirationDate;
+        }
+
+        return result;
+    }
+
+    /**
+     * Calculate domain age in days from a date string.
+     * Returns undefined for invalid or missing dates.
+     */
+    private static calculateDomainAge(dateString: string | null | undefined): number | undefined {
+        if (!dateString) {
+            return undefined;
+        }
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+            return undefined;
+        }
+        const ageMs = Date.now() - date.getTime();
+        return Math.floor(ageMs / (1000 * 60 * 60 * 24));
+    }
+
+    /**
      * Parse API response and extract domain info
      */
     private static parseAPIResponse(data: any, domain: string): DomainInfo {
-        let registrationDate: string | undefined;
-        let expirationDate: string | undefined;
-        let registrar: string | undefined;
+        const parsed = this.parseWhoisData(data);
 
-        // Try to extract common fields from different API formats
-        if (data.creation_date || data.created_date || data.createdDate) {
-            registrationDate = data.creation_date || data.created_date || data.createdDate;
-        }
-
-        if (data.expiration_date || data.expires_date || data.expirationDate) {
-            expirationDate = data.expiration_date || data.expires_date || data.expirationDate;
-        }
-
-        if (data.registrar || data.registrar_name) {
-            registrar = data.registrar || data.registrar_name;
-        }
-
-        // Calculate domain age
-        let domainAge: number | undefined;
-        let isRecentlyRegistered = false;
-
-        if (registrationDate) {
-            const regDate = new Date(registrationDate);
-            const now = new Date();
-            domainAge = Math.floor((now.getTime() - regDate.getTime()) / (1000 * 60 * 60 * 24));
-            isRecentlyRegistered = domainAge <= this.RECENTLY_REGISTERED_DAYS;
-        }
+        const domainAge = this.calculateDomainAge(parsed.creationDate);
+        const isRecentlyRegistered = domainAge !== undefined && domainAge <= this.RECENTLY_REGISTERED_DAYS;
 
         return {
-            registrationDate,
-            expirationDate,
-            registrar,
+            registrationDate: parsed.creationDate,
+            expirationDate: parsed.expirationDate,
+            registrar: parsed.registrar,
             domainAge,
             isRecentlyRegistered,
             whoisUrl: `https://who.is/whois/${domain}`,

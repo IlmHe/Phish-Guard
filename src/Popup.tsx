@@ -445,7 +445,8 @@ export const Popup = (): React.ReactElement => {
                             </>
                         ) : (
                             <div style={{ fontSize: '0.9rem', color: '#666' }}>
-                                Analyzing: <strong>{domain}</strong>
+                                <div><strong>Link:</strong> <a href={url} style={{ wordBreak: 'break-all' }}>{url}</a></div>
+                                <div><strong>Domain:</strong> {domain}</div>
                             </div>
                         )}
                     </div>

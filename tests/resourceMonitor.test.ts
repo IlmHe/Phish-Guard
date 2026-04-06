@@ -38,7 +38,7 @@ describe('ResourceMonitor', () => {
 
       expect(result.suspiciousResources.length).toBeGreaterThan(0);
       expect(result.suspiciousResources[0].riskLevel).toBe('critical');
-      expect(result.suspiciousResources[0].reasons).toContain(
+      expect(result.suspiciousResources[0].reasons).toContainEqual(
         expect.stringContaining('IP address')
       );
     });
@@ -100,7 +100,7 @@ describe('ResourceMonitor', () => {
       const result = ResourceMonitor.scanPageResources();
 
       expect(result.suspiciousResources.length).toBeGreaterThan(0);
-      expect(result.suspiciousResources[0].reasons).toContain(
+      expect(result.suspiciousResources[0].reasons).toContainEqual(
         expect.stringContaining('subdomains')
       );
     });

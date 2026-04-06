@@ -1,7 +1,9 @@
-import { SitemapService } from '../src/services/sitemapService';
+import { SitemapService, SitemapResult } from '../src/services/sitemapService';
 
 // Mock fetch globally
 global.fetch = jest.fn();
+
+const MOCK_SITEMAP_XML = '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>';
 
 describe('SitemapService', () => {
   beforeEach(() => {
@@ -11,7 +13,7 @@ describe('SitemapService', () => {
   describe('findSitemaps', () => {
     it('should find sitemap via direct URL access', async () => {
       (global.fetch as jest.Mock)
-        .mockResolvedValueOnce({ ok: true, text: async () => '<xml>sitemap</xml>' }) // sitemap.xml
+        .mockResolvedValueOnce({ ok: true, text: async () => MOCK_SITEMAP_XML }) // sitemap.xml
         .mockResolvedValueOnce({ ok: false }) // sitemap_index.xml
         .mockResolvedValueOnce({ ok: false }); // sitemap-index.xml
 
@@ -24,16 +26,16 @@ describe('SitemapService', () => {
     });
 
     it('should find sitemaps in robots.txt when direct URLs fail', async () => {
-      // All direct URLs fail
-      (global.fetch as jest.Mock)
-        .mockResolvedValueOnce({ ok: false })
-        .mockResolvedValueOnce({ ok: false })
-        .mockResolvedValueOnce({ ok: false })
-        // robots.txt succeeds
-        .mockResolvedValueOnce({
-          ok: true,
-          text: async () => 'Sitemap: https://example.com/sitemap.xml\nSitemap: https://example.com/sitemap2.xml'
-        });
+      // All direct sitemap URLs fail; only robots.txt succeeds
+      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+        if (typeof url === 'string' && url.includes('/robots.txt')) {
+          return {
+            ok: true,
+            text: async () => 'Sitemap: https://example.com/sitemap.xml\nSitemap: https://example.com/sitemap2.xml'
+          };
+        }
+        return { ok: false };
+      });
 
       const result = await SitemapService.findSitemaps('example.com');
 
@@ -68,7 +70,7 @@ describe('SitemapService', () => {
       const progressCallback = jest.fn();
 
       (global.fetch as jest.Mock)
-        .mockResolvedValueOnce({ ok: true, text: async () => '<xml>sitemap</xml>' })
+        .mockResolvedValueOnce({ ok: true, text: async () => MOCK_SITEMAP_XML })
         .mockResolvedValue({ ok: false });
 
       await SitemapService.findSitemapsWithProgress('example.com', progressCallback);
@@ -109,7 +111,7 @@ describe('SitemapService', () => {
     it('should try common sitemap URLs', async () => {
       (global.fetch as jest.Mock)
         .mockResolvedValueOnce({ ok: false }) // sitemap.xml
-        .mockResolvedValueOnce({ ok: true, text: async () => '<xml>index</xml>' }) // sitemap_index.xml
+        .mockResolvedValueOnce({ ok: true, text: async () => '<sitemapindex><sitemap><loc>https://example.com/sitemap1.xml</loc></sitemap></sitemapindex>' }) // sitemap_index.xml
         .mockResolvedValueOnce({ ok: false }); // sitemap-index.xml
 
       const urls = await (SitemapService as any).tryDirectUrls('example.com');
@@ -266,6 +268,38 @@ describe('SitemapService', () => {
       const result = (SitemapService as any).isSitemapContent('');
 
       expect(result).toBe(false);
+    });
+  });
+
+  describe('generateSummary', () => {
+    it('should generate summary for direct method', () => {
+      const result: SitemapResult = { found: true, urls: ['https://example.com/sitemap.xml'], method: 'direct', attempts: [] };
+      const summary = SitemapService.generateSummary(result);
+      expect(summary).toContain('directly');
+    });
+
+    it('should generate summary for robots method', () => {
+      const result: SitemapResult = { found: true, urls: ['https://example.com/sitemap.xml'], method: 'robots', attempts: [] };
+      const summary = SitemapService.generateSummary(result);
+      expect(summary).toContain('robots.txt');
+    });
+
+    it('should generate summary for search method', () => {
+      const result: SitemapResult = { found: true, urls: ['https://google.com/search?q=sitemap'], method: 'search', attempts: [] };
+      const summary = SitemapService.generateSummary(result);
+      expect(summary).toContain('search');
+    });
+
+    it('should generate summary when not found', () => {
+      const result: SitemapResult = { found: false, urls: [], method: 'none', attempts: [] };
+      const summary = SitemapService.generateSummary(result);
+      expect(summary).toContain('No sitemaps');
+    });
+
+    it('should generate default summary for unknown method', () => {
+      const result: SitemapResult = { found: true, urls: [], method: 'none', attempts: [] };
+      const summary = SitemapService.generateSummary(result);
+      expect(summary).toBeDefined();
     });
   });
 });

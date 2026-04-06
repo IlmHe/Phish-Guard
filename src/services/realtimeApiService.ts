@@ -81,140 +81,110 @@ export class RealtimeApiService {
   }
 
   /**
-   * Query VirusTotal API (free tier has rate limits)
-   * Note: In production, you would need a real API key
+   * Simulate an API reputation response based on URL and domain patterns.
+   * Returns 'unknown' for domains with no recognisable risk signals or safe signals.
+   */
+  public static simulateApiResponse(url: string, domain: string, source: string): ApiReputationResult {
+    let riskScore = 0;
+    let status: 'safe' | 'suspicious' | 'malicious' | 'unknown' = 'unknown';
+    const categories: string[] = [];
+
+    const domainLower = domain.toLowerCase();
+
+    // Clearly malicious patterns
+    if (domainLower.includes('phish') || domainLower.includes('malware') ||
+        domainLower.includes('scam') || domainLower.includes('virus') ||
+        domainLower.includes('trojan')) {
+      riskScore = 85;
+      status = 'malicious';
+      categories.push('phishing', 'malware');
+    } else if (/^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/.test(domain)) {
+      // Direct IP address
+      riskScore = 70;
+      status = 'malicious';
+      categories.push('ip_address', 'phishing');
+    } else if (domain.match(/\.(tk|ml|ga|cf|gq)$/)) {
+      // Free suspicious TLDs
+      riskScore = 60;
+      status = 'suspicious';
+      categories.push('suspicious_domain');
+    } else if (domainLower.includes('suspicious') || domainLower.includes('temp') ||
+               /[0-9]{8,}/.test(domain)) {
+      riskScore = 45;
+      status = 'suspicious';
+      categories.push('suspicious');
+    } else {
+      // Check for suspicious keywords in domain (brand impersonation patterns)
+      const suspiciousKeywords = ['verify', 'secure', 'login', 'signin', 'update', 'account', 'confirm'];
+      const hasSuspiciousKeyword = suspiciousKeywords.some(kw => domainLower.includes(kw));
+      if (hasSuspiciousKeyword) {
+        riskScore = 50;
+        status = 'suspicious';
+        categories.push('suspicious_keywords');
+      } else {
+        // Known safe domains
+        const knownSafe = ['google', 'github', 'wikipedia', 'microsoft', 'apple',
+                           'amazon', 'facebook', 'youtube', 'twitter', 'instagram',
+                           'example'];
+        const isSafe = knownSafe.some(safe => domainLower.includes(safe));
+        if (isSafe) {
+          riskScore = 5;
+          status = 'safe';
+        } else {
+          // Not enough information to make a determination
+          riskScore = 0;
+          status = 'unknown';
+        }
+      }
+    }
+
+    return {
+      source: `${source} (Simulated)`,
+      status,
+      confidence: status === 'unknown' ? 0 : 75,
+      riskScore,
+      categories,
+      responseTime: 0,
+      details: `Simulated analysis for ${domain}`
+    };
+  }
+
+  /**
+   * Query VirusTotal API (simulated - no real API key required)
    */
   private static async queryVirusTotalApi(url: string, domain: string): Promise<ApiReputationResult> {
     const startTime = Date.now();
-
     try {
-      // This is a mock implementation - in production you'd use real API calls
-      // const response = await fetch(`https://www.virustotal.com/vtapi/v2/url/report?apikey=${API_KEY}&resource=${encodeURIComponent(url)}`);
-
-      // For now, simulate API behavior based on domain patterns
-      const responseTime = Date.now() - startTime;
-
-      // Simulate risk assessment based on domain characteristics
-      let riskScore = 0;
-      let status: 'safe' | 'suspicious' | 'malicious' | 'unknown' = 'unknown';
-      const categories: string[] = [];
-
-      // Check for known suspicious patterns
-      if (domain.includes('phish') || domain.includes('malware') || domain.includes('scam')) {
-        riskScore = 85;
-        status = 'malicious';
-        categories.push('phishing', 'malware');
-      } else if (domain.includes('suspicious') || domain.includes('temp') || /[0-9]{8,}/.test(domain)) {
-        riskScore = 45;
-        status = 'suspicious';
-        categories.push('suspicious');
-      } else {
-        riskScore = 10;
-        status = 'safe';
-      }
-
-      return {
-        source: 'Pattern Analysis',
-        status,
-        confidence: 75,
-        riskScore,
-        categories,
-        responseTime,
-        details: `Local pattern analysis for malware and phishing indicators`
-      };
+      const result = this.simulateApiResponse(url, domain, 'VirusTotal');
+      return { ...result, responseTime: Date.now() - startTime };
     } catch (error) {
-      return this.createErrorResult('VirusTotal', error instanceof Error ? error.message : 'API call failed');
+      return this.createErrorResult('VirusTotal (Simulated)', error instanceof Error ? error.message : 'API call failed');
     }
   }
 
   /**
-   * Query Google Safe Browsing API
+   * Query Google Safe Browsing API (simulated - no real API key required)
    */
   private static async queryGoogleSafeBrowsingApi(url: string, domain: string): Promise<ApiReputationResult> {
     const startTime = Date.now();
-
     try {
-      // Mock implementation - in production you'd use real Google Safe Browsing API
-      const responseTime = Date.now() - startTime;
-
-      let riskScore = 0;
-      let status: 'safe' | 'suspicious' | 'malicious' | 'unknown' = 'unknown';
-      const categories: string[] = [];
-
-      // Simulate Google's risk assessment
-      if (domain.includes('google') || domain.includes('microsoft') || domain.includes('apple')) {
-        riskScore = 5;
-        status = 'safe';
-      } else if (domain.match(/\.(tk|ml|ga|cf|gq)$/)) {
-        riskScore = 60;
-        status = 'suspicious';
-        categories.push('suspicious_domain');
-      } else if (/[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/.test(domain)) {
-        riskScore = 70;
-        status = 'malicious';
-        categories.push('ip_address', 'phishing');
-      } else {
-        riskScore = 15;
-        status = 'safe';
-      }
-
-      return {
-        source: 'Domain Analysis',
-        status,
-        confidence: 85,
-        riskScore,
-        categories,
-        responseTime,
-        details: `Domain reputation analysis for ${domain}`
-      };
+      const result = this.simulateApiResponse(url, domain, 'Google Safe Browsing');
+      return { ...result, responseTime: Date.now() - startTime };
     } catch (error) {
-      return this.createErrorResult('Google Safe Browsing', error instanceof Error ? error.message : 'API call failed');
+      return this.createErrorResult('Google Safe Browsing (Simulated)', error instanceof Error ? error.message : 'API call failed');
     }
   }
 
   /**
-   * Query PhishTank API
+   * Query PhishTank API (simulated - no real API key required)
    */
   private static async queryPhishTankApi(url: string, domain: string): Promise<ApiReputationResult> {
     const startTime = Date.now();
-
     try {
-      // Mock implementation - in production you'd use real PhishTank API
-      const responseTime = Date.now() - startTime;
-
-      let riskScore = 0;
-      let status: 'safe' | 'suspicious' | 'malicious' | 'unknown' = 'unknown';
-      const categories: string[] = [];
-
-      // Simulate PhishTank's phishing detection
-      const phishingKeywords = ['login', 'signin', 'verify', 'update', 'suspend', 'security'];
-      const hasPhishingKeywords = phishingKeywords.some(keyword => url.toLowerCase().includes(keyword));
-
-      if (hasPhishingKeywords && !domain.includes('google') && !domain.includes('microsoft')) {
-        riskScore = 75;
-        status = 'malicious';
-        categories.push('phishing', 'credential_theft');
-      } else if (hasPhishingKeywords) {
-        riskScore = 25;
-        status = 'suspicious';
-        categories.push('authentication_page');
-      } else {
-        riskScore = 8;
-        status = 'safe';
-      }
-
-      return {
-        source: 'URL Analysis',
-        status,
-        confidence: 70,
-        riskScore,
-        categories,
-        responseTime,
-        lastSeen: hasPhishingKeywords ? new Date().toISOString() : undefined,
-        details: `URL structure analysis for phishing patterns`
-      };
+      const result = this.simulateApiResponse(url, domain, 'PhishTank');
+      return { ...result, responseTime: Date.now() - startTime };
     } catch (error) {
-      return this.createErrorResult('PhishTank', error instanceof Error ? error.message : 'API call failed');
+      return this.createErrorResult('PhishTank (Simulated)', error instanceof Error ? error.message : 'API call failed');
     }
   }
 
@@ -224,7 +194,7 @@ export class RealtimeApiService {
   private static createTimeoutPromise(apiIndex: number): Promise<never> {
     return new Promise((_, reject) => {
       setTimeout(() => {
-        reject(new Error(`API ${apiIndex} timed out after ${this.TIMEOUT_MS}ms`));
+        reject(new Error(`API ${apiIndex} timeout after ${this.TIMEOUT_MS}ms`));
       }, this.TIMEOUT_MS);
     });
   }

@@ -6,6 +6,8 @@ global.fetch = jest.fn();
 describe('DomainInfoService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Clear the in-memory cache so tests don't interfere with each other
+    (DomainInfoService as any).cache.clear();
   });
 
   describe('getDomainInfo', () => {
@@ -178,6 +180,71 @@ describe('DomainInfoService', () => {
       const result = (DomainInfoService as any).parseWhoisData(rawData);
 
       expect(result.creationDate).toBeDefined();
+    });
+  });
+
+  describe('calculateRiskScore', () => {
+    it('should return zero score for undefined inputs', () => {
+      const result = DomainInfoService.calculateRiskScore(undefined, undefined);
+      expect(result.score).toBe(0);
+      expect(result.factors).toHaveLength(0);
+    });
+
+    it('should add score for recently registered domain', () => {
+      const result = DomainInfoService.calculateRiskScore({
+        domainAge: 10,
+        isRecentlyRegistered: true,
+        whoisUrl: 'https://who.is/whois/example.com'
+      });
+      expect(result.score).toBe(40);
+      expect(result.factors.some(f => f.includes('recently'))).toBe(true);
+    });
+
+    it('should add score for domain less than 90 days old', () => {
+      const result = DomainInfoService.calculateRiskScore({
+        domainAge: 60,
+        isRecentlyRegistered: false,
+        whoisUrl: 'https://who.is/whois/example.com'
+      });
+      expect(result.score).toBe(20);
+      expect(result.factors.some(f => f.includes('new'))).toBe(true);
+    });
+
+    it('should not add score for old domains', () => {
+      const result = DomainInfoService.calculateRiskScore({
+        domainAge: 365,
+        isRecentlyRegistered: false,
+        whoisUrl: 'https://who.is/whois/example.com'
+      });
+      expect(result.score).toBe(0);
+    });
+
+    it('should add score for self-signed certificate', () => {
+      const result = DomainInfoService.calculateRiskScore(undefined, { isSelfSigned: true });
+      expect(result.score).toBe(25);
+      expect(result.factors).toContain('Self-signed SSL certificate');
+    });
+
+    it('should add score for recently issued certificate', () => {
+      const result = DomainInfoService.calculateRiskScore(undefined, { issuedRecently: true });
+      expect(result.score).toBe(15);
+    });
+
+    it('should add score for soon-expiring certificate', () => {
+      const result = DomainInfoService.calculateRiskScore(undefined, { daysUntilExpiry: 3 });
+      expect(result.score).toBe(10);
+    });
+  });
+
+  describe('getCertificateInfo', () => {
+    it('should return certificate info for valid HTTPS URL', async () => {
+      const result = await DomainInfoService.getCertificateInfo('https://example.com');
+      expect(result).toBeDefined();
+    });
+
+    it('should return null for invalid URL', async () => {
+      const result = await DomainInfoService.getCertificateInfo('not-a-url');
+      expect(result).toBeNull();
     });
   });
 

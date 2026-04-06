@@ -88,7 +88,7 @@ describe('CertificateAnalysisService', () => {
       const result = await CertificateAnalysisService.analyzeCertificate('example.com');
 
       expect(result.isFreeCA).toBe(true);
-      expect(result.riskFactors).toContain(expect.stringContaining('Free automated certificate'));
+      expect(result.riskFactors).toContainEqual(expect.stringContaining('Free automated certificate'));
     });
 
     it('should handle API errors', async () => {

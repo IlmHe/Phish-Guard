@@ -303,10 +303,10 @@ function showAlertWindow(scan: any, url: string) {
   const deduplicatedResources: string[] = [];
 
   for (const r of scan.suspiciousResources) {
-    const url = r.url || r;
-    if (!uniqueUrls.has(url) && deduplicatedResources.length < 5) {
-      uniqueUrls.add(url);
-      deduplicatedResources.push(url);
+    const resourceUrl = r.url || r;
+    if (!uniqueUrls.has(resourceUrl) && deduplicatedResources.length < 5) {
+      uniqueUrls.add(resourceUrl);
+      deduplicatedResources.push(resourceUrl);
     }
   }
 

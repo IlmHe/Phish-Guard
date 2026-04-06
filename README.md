@@ -107,7 +107,7 @@ The scanner runs multiple checks and combines them into a risk score (0-100). He
 
 #### 1. **Phishing Database**
 - **+80 points**: Found in my phishing database (South African URLs mostly)
-- Shows "Found in phishing database" or "Clean"
+- Shows "Found in Phishing DB" or "Not found in our phishing databases"
 
 #### 2. **Homograph/Typosquatting**
 Catches fake domains that look real:
@@ -117,7 +117,7 @@ Catches fake domains that look real:
 - **+30 points**: Punycode domains (xn--)
 
 #### 3. **Domain Age**
-- **+25 points**: Domain less than 90 days old
+- **+25 points**: Domain less than 30 days old (recently registered)
 - Shows how old the domain is
 
 #### 4. **Certificate Age** ⭐
